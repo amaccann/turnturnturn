@@ -1,0 +1,112 @@
+<h3 class="row">
+  <div class="col-sm-6">
+    <strong>
+      Turn: <span ng-bind="vm.turnManager.turn"></span>
+    </strong>
+    <button class="btn btn-success" ng-click="vm.setNextTurnAndUpdate()">
+      Next Turn
+      <i class="glyphicon glyphicon-repeat"></i>
+    </button>
+  </div>
+  <strong class="col-sm-6">
+    Year: <span ng-bind="vm.turnManager.year"></span>
+  </strong>
+</h3>
+
+<hr />
+
+<div class="row">
+  <div class="col-sm-12">
+    <button class="btn btn-primary" ng-click="vm.buildNewTown()">
+      Build a new town
+    </button>
+  </div>
+</div>
+
+<div class="row town-wrapper">
+
+  <div class="town col-sm-6" ng-repeat="town in vm.towns track by town.id">
+    <div class="row">
+      <div class="col-sm-6">
+        ID: <span ng-bind="town.id"></span>
+      </div>
+      <div class="col-sm-6">
+        buildings: <span ng-bind="town.buildings.length"></span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <h5>population:</h5>
+        <demographic
+            label="Child"
+            demographic="town.stats.population.demographics.child"></demographic>
+        <demographic
+            label="Young adult"
+            demographic="town.stats.population.demographics.youngAdult"></demographic>
+        <demographic
+            label="Adult"
+            demographic="town.stats.population.demographics.adult"></demographic>
+        <demographic
+            label="Old"
+            demographic="town.stats.population.demographics.old"></demographic>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <h5>Buffs:</h5>
+        <buffs ng-repeat="(key, value) in town.buffs" buffs="value" label="key"></buffs>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-3">
+        food: <span ng-bind="town.totals.food"></span>
+      </div>
+      <div class="col-sm-3">
+        happiness: <span ng-bind="town.totals.happiness"></span>
+      </div>
+      <div class="col-sm-3">
+        disease: <span ng-bind="town.totals.disease"></span>
+      </div>
+      <div class="col-sm-3">
+        production: <span ng-bind="town.totals.work"></span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-sm-12">
+        <table class="table table-striped">
+          <tr ng-repeat="building in town.buildings track by building.id">
+            <td ng-bind="building.name"></td>
+            <td>
+              <span ng-if="!building.finished">
+                <i class="glyphicon glyphicon-wrench text-warning"></i>
+                finished in: <span ng-bind="building.finishedIn"></span>
+              </span>
+
+              <i class="glyphicon glyphicon-ok text-success"
+                 ng-if="building.finished"></i>
+            </td>
+            <td>
+              <a class="btn btn-default"
+                 ng-href=""
+                 ng-click="vm.destroyBuilding(town.id, building)">
+                <span ng-if="building.finished">Destroy</span>
+                <span ng-if="!building.finished">Cancel</span>
+              </a>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-sm-12">
+        <button class="btn btn-default"
+                ng-repeat="type in vm.buildingTypes track by type.id"
+                ng-bind="type.name"
+                ng-click="vm.startBuilding(town.id, type)"></button>
+      </div>
+    </div>
+  </div>
+
+</div>
