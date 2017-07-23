@@ -3,7 +3,6 @@
 
   var Demographic = require('./Demographic'),
     DemographicTypes = require('../config/DemographicTypes'),
-    TurnManager = require('../TurnManager'),
     getRandomInt = require('../convert/getRandomInt'),
     forEach = require('../util/forEach');
 
@@ -31,19 +30,24 @@
     createDemographicFrom: function (source, params, key) {
       params = params || {};
       var size = source.size,
-        work = source.work,
+        production = source.production,
         fertility = source.fertility;
 
       return new Demographic({
         key: key,
-        work: params.work || (work ? getRandomInt(work.from, work.to) : 0),
+        production: params.production || (production ? getRandomInt(production.from, production.to) : 0),
         fertility: params.fertility || (fertility ? getRandomInt(fertility.from, fertility.to) : 0),
         size: params.size || (size ? getRandomInt(size.from, size.to) : 0),
         lifespanRange: params.lifespan || source.lifespan
       });
     },
 
-    growNextDemographicBy: function (demographic, by) {
+    /**
+     * @method growNextDemographicBy
+     * @param {Object} demographic
+     * @param {Number} growBy
+     */
+    growNextDemographicBy: function (demographic, growBy) {
       var key = demographic.key,
         createFrom;
 
@@ -54,33 +58,18 @@
       } else if (key === 'adult') {
         createFrom = 'old';
       }
-      this.demographics[createFrom].add(by);
+      this.demographics[createFrom].add(growBy);
     },
 
     /**
-     * @TODO remove this at some point, town.setStatisticTotals() needs it
-     */
-    get: function () {
-      return 0;
-    },
-
-    /**
-     * @method getAll
-     * @return {Object}
-     */
-    getAll: function () {
-      return this.demographics;
-    },
-
-    /**
-     * @method getTotalWork
+     * @method getTotalProduction
      * @return {Number}
      */
-    getTotalWork: function () {
+    getTotalProduction: function () {
       var total = 0;
 
       forEach(this.demographics, function (demographic) {
-        total += demographic.getTotalWork();
+        total += demographic.getTotalProduction();
       });
       return total;
     },
@@ -91,20 +80,8 @@
      *
      */
     update: function () {
-      var snapshot = TurnManager.getSnapshot(),
-        currentYear = snapshot.year,
-        oldLength = 0,
-        newLength = 0;
-
       forEach(this.demographics, function (demographic) {
-        oldLength = demographic.size.length;
-        demographic.size = demographic.size.filter(function (value) {
-          return (currentYear - value.createdAt.year) <= value.lifespan;
-        });
-        newLength = demographic.size.length;
-        if (oldLength > newLength && demographic.key !== 'old') {
-          this.growNextDemographicBy(demographic, (oldLength - newLength));
-        }
+        demographic.update(this.growNextDemographicBy.bind(this));
       }, this);
     },
 

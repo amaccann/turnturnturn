@@ -16,6 +16,7 @@
       $scope.$evalAsync(function () {
         vm.towns = e.data.towns;
         vm.turnManager = e.data.turnManager;
+        console.log('towns', vm.towns);
       });
     });
 

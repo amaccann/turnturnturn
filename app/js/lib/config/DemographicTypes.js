@@ -3,7 +3,7 @@
 
   module.exports = {
     child: {
-      work: false,
+      production: false,
       fertility: false,
       size: {
         from: 0,
@@ -15,7 +15,7 @@
       }
     },
     youngAdult: {
-      work: {
+      production: {
         from: 0.4,
         to: 0.5
       },
@@ -28,12 +28,12 @@
         to: 5
       },
       lifespan: {
-        from: 2,
-        to: 2
+        from: 1,
+        to: 3
       }
     },
     adult: {
-      work: {
+      production: {
         from: 0.7,
         to: 0.8
       },
@@ -51,7 +51,7 @@
       }
     },
     old: {
-      work: {
+      production: {
         from: 0.3,
         to: 0.5
       },

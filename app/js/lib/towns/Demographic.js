@@ -2,32 +2,19 @@
   'use strict';
 
   var floor = require('../convert/floor'),
-    TurnManager = require('../TurnManager'),
-    getRandomInt = require('../convert/getRandomInt');
+    Person = require('./Person'),
+    TurnManager = require('../TurnManager');
 
   function Demographic(params) {
     params = params || {};
-    Object.assign(this, params);
-
-    this.addNew = 0;
+    this.key = params.key;
     this.size = [];
-    this.add(params.size);
+    this.add(params);
   }
 
   Demographic.prototype = {
-    age: 0,
-    fertility: 0,
-    work: 0,
-    lifespan: 0,
+    production: 0,
     size: 0,
-
-    /**
-     * @method getAge
-     * @return {Number}
-     */
-    getAge: function () {
-      return floor(this.age);
-    },
 
     /**
      * @method getSize
@@ -38,40 +25,56 @@
     },
 
     /**
-     * @method getTotalWork
+     * @method getTotalProduction
      * @return {Number}
      */
-    getTotalWork: function () {
-      var totalWork = this.work * this.size.length;
-      return floor(totalWork);
+    getTotalProduction: function () {
+      return this.key === 'child' ? 0 : this.size.length;
     },
 
-    /**
-     * @method increment
-     * @param {Number} by
-     */
-    increment: function (by) {
-      this.addNew += by || 0;
-      if (this.addNew >= 1) {
-        this.add(1);
-        this.addNew = 0;
-      }
-    },
     /**
      * @method add
-     * @param {Number} addBy
+     * @param {Number} params
      */
-    add: function (addBy) {
-      var i = 0,
-        range = this.lifespanRange;
-
-      for (i; i < addBy; i += 1) {
-        this.size.push({
-          createdAt: TurnManager.getSnapshot(),
-          lifespan: (range ? getRandomInt(range.from, range.to) : 0)
-        });
+    add: function (params) {
+      var i = 0;
+      for (i; i < params.size; i += 1) {
+        this.size.push(new Person(params));
       }
+    },
+
+    /**
+     * @method isStillAlive
+     * @param {Object} value
+     * @return {Boolean}
+     */
+    isStillAlive: function (value) {
+      var snapshot = TurnManager.getSnapshot(),
+        currentYear = snapshot.year;
+
+      return (currentYear - value.createdAt.year) <= value.lifespan;
+    },
+
+    /**
+     * @method update
+     * @param {Function} callback
+     */
+    update: function (callback) {
+      var oldLength = this.size.length,
+        newLength;
+
+      this.size = this.size.filter(this.isStillAlive);
+      newLength = this.size.length;
+
+      if (callback && oldLength > newLength && this.key !== 'old') {
+        callback.call(callback, this, (oldLength - newLength));
+      }
+    },
+
+    kill: function () {
+
     }
+
   };
 
   module.exports = Demographic;

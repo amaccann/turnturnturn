@@ -44,6 +44,7 @@
       $scope.$evalAsync(function () {
         vm.towns = e.data.towns;
         vm.turnManager = e.data.turnManager;
+        console.log('towns', vm.towns);
       });
     });
 
@@ -86,14 +87,15 @@
 
 }());
 
-},{"../../lib/WorldManager":4,"../../lib/config/BuildingTypes":5,"webworkify":16}],3:[function(require,module,exports){
+},{"../../lib/WorldManager":4,"../../lib/config/BuildingTypes":5,"webworkify":15}],3:[function(require,module,exports){
 (function () {
   'use strict';
 
   var YEAR_MULTIPLIER = 0.25, // 1 turn === 0.25 of year === season
-    floor = require('./convert/floor');
+    floor = require('./convert/floor'),
+    TurnManager;
 
-  var TurnManager = {
+  TurnManager = {
     turn: 1,
     year: 1,
 
@@ -255,7 +257,7 @@
 
 }());
 
-},{"./TurnManager":3,"./towns/Town":14}],5:[function(require,module,exports){
+},{"./TurnManager":3,"./towns/Town":13}],5:[function(require,module,exports){
 (function () {
   'use strict';
 
@@ -327,7 +329,7 @@
 
   module.exports = {
     child: {
-      work: false,
+      production: false,
       fertility: false,
       size: {
         from: 0,
@@ -339,7 +341,7 @@
       }
     },
     youngAdult: {
-      work: {
+      production: {
         from: 0.4,
         to: 0.5
       },
@@ -352,12 +354,12 @@
         to: 5
       },
       lifespan: {
-        from: 2,
-        to: 2
+        from: 1,
+        to: 3
       }
     },
     adult: {
-      work: {
+      production: {
         from: 0.7,
         to: 0.8
       },
@@ -375,7 +377,7 @@
       }
     },
     old: {
-      work: {
+      production: {
         from: 0.3,
         to: 0.5
       },
@@ -424,167 +426,48 @@
 (function () {
   'use strict';
 
-  function Buff() {
-    this.buffs = [];
+  var getRandomInt = require('../convert/getRandomInt'),
+    MIN_STARTING_HAPPINESS = 60,
+    MAX_STARTING_HAPPINESS = 75;
 
-    /**
-     * @method total
-     * @return {Boolean}
-     */
-    this.total = function () {
-      var total = 0;
-      this.buffs.forEach(function (b) {
-        total += b.buff;
-      });
-      return total;
-    };
-
-    /**
-     * @method getAll
-     * @return {Array}
-     */
-    this.getAll = function () {
-      return this.buffs;
-    };
-
-    /**
-     * @method get
-     * @param {Boolean} townId
-     * @return {Object}
-     */
-    this.get = function (townId) {
-      return this.buffs.find(function (v) {
-        return v.townId === townId;
-      });
-    };
-
-    /**
-     * @method set
-     * @param {Number} townId
-     * @param {Number} buff
-     */
-    this.set = function (townId, buff) {
-      var index = this.buffs.findIndex(function (v) {
-        return v.townId === townId;
-      });
-
-      if (index > -1) {
-        this.buffs[index] = { townId: townId, buff: buff };
-      }
-
-      this.buffs.push({
-        townId: townId,
-        buff: buff
-      });
-    };
-
+  function Happiness(initial) {
+    this.value = initial || this.setInitialValue();
   }
 
-  module.exports = Buff;
-
-}());
-
-},{}],10:[function(require,module,exports){
-(function () {
-  'use strict';
-
-  var TurnManager = require('../TurnManager');
-
-  function Building(town, params) {
-    params = params || {};
-    this.belongsTo = town.id;
-    this.startedAt = TurnManager.getTurn();
-    this.progress = 0;
-
-    this.finished = false;
-    this.destroyed = false;
-    Object.assign(this, params);
-    this.update(town);
-  }
-
-  Building.prototype = {
+  Happiness.prototype = {
 
     /**
-     * @method isFinished
-     * @return {Boolean}
+     * @method setInitialValue
+     * @return {Number}
      */
-    isFinished: function () {
-      return this.finished && !this.destroyed;
-    },
-
-    /**
-     * @method update
-     * @param {Object} town
-     */
-    update: function (town) {
-      var stats = town.stats;
-
-      if (this.isFinished()) {
-        return;
-      }
-
-      this.progress += stats.work.get();
-      this.setFinished(town);
-    },
-
-    /**
-     * @method setFinished
-     */
-    setFinished: function (town) {
-      var stats = town.stats;
-
-      this.finishedIn = TurnManager.turnsToFinish(this.progress, this.amountToBuild, stats.work.get());
-      this.finished = this.finishedIn === 0 || (this.progress >= this.amountToBuild);
-
-      if (this.finished && !this.finishedAt) {
-        this.finishedAt = TurnManager.getSnapshot();
-      }
-    },
-
-    /**
-     * @method destroy
-     */
-    destroy: function () {
-      this.destroyed = true;
+    setInitialValue: function () {
+      this.value = getRandomInt(MIN_STARTING_HAPPINESS, MAX_STARTING_HAPPINESS);
+      return this.value;
     }
-
   };
 
-  module.exports = Building;
+  module.exports = Happiness;
 
 }());
 
-},{"../TurnManager":3}],11:[function(require,module,exports){
+},{"../convert/getRandomInt":8}],10:[function(require,module,exports){
 (function () {
   'use strict';
 
   var floor = require('../convert/floor'),
-    TurnManager = require('../TurnManager'),
-    getRandomInt = require('../convert/getRandomInt');
+    Person = require('./Person'),
+    TurnManager = require('../TurnManager');
 
   function Demographic(params) {
     params = params || {};
-    Object.assign(this, params);
-
-    this.addNew = 0;
+    this.key = params.key;
     this.size = [];
-    this.add(params.size);
+    this.add(params);
   }
 
   Demographic.prototype = {
-    age: 0,
-    fertility: 0,
-    work: 0,
-    lifespan: 0,
+    production: 0,
     size: 0,
-
-    /**
-     * @method getAge
-     * @return {Number}
-     */
-    getAge: function () {
-      return floor(this.age);
-    },
 
     /**
      * @method getSize
@@ -595,53 +478,91 @@
     },
 
     /**
-     * @method getTotalWork
+     * @method getTotalProduction
      * @return {Number}
      */
-    getTotalWork: function () {
-      var totalWork = this.work * this.size.length;
-      return floor(totalWork);
+    getTotalProduction: function () {
+      return this.key === 'child' ? 0 : this.size.length;
     },
 
-    /**
-     * @method increment
-     * @param {Number} by
-     */
-    increment: function (by) {
-      this.addNew += by || 0;
-      if (this.addNew >= 1) {
-        this.add(1);
-        this.addNew = 0;
-      }
-    },
     /**
      * @method add
-     * @param {Number} addBy
+     * @param {Number} params
      */
-    add: function (addBy) {
-      var i = 0,
-        range = this.lifespanRange;
-
-      for (i; i < addBy; i += 1) {
-        this.size.push({
-          createdAt: TurnManager.getSnapshot(),
-          lifespan: (range ? getRandomInt(range.from, range.to) : 0)
-        });
+    add: function (params) {
+      var i = 0;
+      for (i; i < params.size; i += 1) {
+        this.size.push(new Person(params));
       }
+    },
+
+    /**
+     * @method isStillAlive
+     * @param {Object} value
+     * @return {Boolean}
+     */
+    isStillAlive: function (value) {
+      var snapshot = TurnManager.getSnapshot(),
+        currentYear = snapshot.year;
+
+      return (currentYear - value.createdAt.year) <= value.lifespan;
+    },
+
+    /**
+     * @method update
+     * @param {Function} callback
+     */
+    update: function (callback) {
+      var oldLength = this.size.length,
+        newLength;
+
+      this.size = this.size.filter(this.isStillAlive);
+      newLength = this.size.length;
+
+      if (callback && oldLength > newLength && this.key !== 'old') {
+        callback.call(callback, this, (oldLength - newLength));
+      }
+    },
+
+    kill: function () {
+
     }
+
   };
 
   module.exports = Demographic;
 
 }());
 
-},{"../TurnManager":3,"../convert/floor":7,"../convert/getRandomInt":8}],12:[function(require,module,exports){
+},{"../TurnManager":3,"../convert/floor":7,"./Person":11}],11:[function(require,module,exports){
+(function () {
+  'use strict';
+
+  var Happiness = require('../metrics/Happiness'),
+    TurnManager = require('../TurnManager'),
+    getRandomInt = require('../convert/getRandomInt');
+
+  function Person(params) {
+    params = params || {};
+    var range = params.lifespanRange;
+
+    Object.assign(this, {
+      createdAt: TurnManager.getSnapshot(),
+      happiness: new Happiness(),
+      lifespan: (range ? getRandomInt(range.from, range.to) : 0),
+      type: params.key
+    });
+  }
+  module.exports = Person;
+
+}());
+
+},{"../TurnManager":3,"../convert/getRandomInt":8,"../metrics/Happiness":9}],12:[function(require,module,exports){
 (function () {
   'use strict';
 
   var Demographic = require('./Demographic'),
     DemographicTypes = require('../config/DemographicTypes'),
-    TurnManager = require('../TurnManager'),
     getRandomInt = require('../convert/getRandomInt'),
     forEach = require('../util/forEach');
 
@@ -669,19 +590,24 @@
     createDemographicFrom: function (source, params, key) {
       params = params || {};
       var size = source.size,
-        work = source.work,
+        production = source.production,
         fertility = source.fertility;
 
       return new Demographic({
         key: key,
-        work: params.work || (work ? getRandomInt(work.from, work.to) : 0),
+        production: params.production || (production ? getRandomInt(production.from, production.to) : 0),
         fertility: params.fertility || (fertility ? getRandomInt(fertility.from, fertility.to) : 0),
         size: params.size || (size ? getRandomInt(size.from, size.to) : 0),
         lifespanRange: params.lifespan || source.lifespan
       });
     },
 
-    growNextDemographicBy: function (demographic, by) {
+    /**
+     * @method growNextDemographicBy
+     * @param {Object} demographic
+     * @param {Number} growBy
+     */
+    growNextDemographicBy: function (demographic, growBy) {
       var key = demographic.key,
         createFrom;
 
@@ -692,33 +618,18 @@
       } else if (key === 'adult') {
         createFrom = 'old';
       }
-      this.demographics[createFrom].add(by);
+      this.demographics[createFrom].add(growBy);
     },
 
     /**
-     * @TODO remove this at some point, town.setStatisticTotals() needs it
-     */
-    get: function () {
-      return 0;
-    },
-
-    /**
-     * @method getAll
-     * @return {Object}
-     */
-    getAll: function () {
-      return this.demographics;
-    },
-
-    /**
-     * @method getTotalWork
+     * @method getTotalProduction
      * @return {Number}
      */
-    getTotalWork: function () {
+    getTotalProduction: function () {
       var total = 0;
 
       forEach(this.demographics, function (demographic) {
-        total += demographic.getTotalWork();
+        total += demographic.getTotalProduction();
       });
       return total;
     },
@@ -729,20 +640,8 @@
      *
      */
     update: function () {
-      var snapshot = TurnManager.getSnapshot(),
-        currentYear = snapshot.year,
-        oldLength = 0,
-        newLength = 0;
-
       forEach(this.demographics, function (demographic) {
-        oldLength = demographic.size.length;
-        demographic.size = demographic.size.filter(function (value) {
-          return (currentYear - value.createdAt.year) <= value.lifespan;
-        });
-        newLength = demographic.size.length;
-        if (oldLength > newLength && demographic.key !== 'old') {
-          this.growNextDemographicBy(demographic, (oldLength - newLength));
-        }
+        demographic.update(this.growNextDemographicBy.bind(this));
       }, this);
     },
 
@@ -772,66 +671,11 @@
 
 }());
 
-},{"../TurnManager":3,"../config/DemographicTypes":6,"../convert/getRandomInt":8,"../util/forEach":15,"./Demographic":11}],13:[function(require,module,exports){
+},{"../config/DemographicTypes":6,"../convert/getRandomInt":8,"../util/forEach":14,"./Demographic":10}],13:[function(require,module,exports){
 (function () {
   'use strict';
 
-  var floor = require('../convert/floor');
-
-  function Statistic(initialValue) {
-    this.value = initialValue || 0;
-
-    /**
-     * @method get
-     * @return {Number}
-     */
-    this.get = function () {
-      return floor(this.value);
-    };
-
-    /**
-     * @method set
-     * @param {Number} newValue
-     * @return {Object}
-     */
-    this.set = function (newValue) {
-      this.value = newValue || 0;
-      return this;
-    };
-
-    /**
-     * @method add
-     * @param {Number} by
-     * @return {Object}
-     */
-    this.add = function (by) {
-      this.value += by || 0;
-      return this;
-    };
-
-    /**
-     * @method subtract
-     * @param {Number} by
-     * @return {Object}
-     */
-    this.subtract = function (by) {
-      this.value -= by || 0;
-      return this;
-    };
-  }
-
-  module.exports = Statistic;
-
-}());
-
-},{"../convert/floor":7}],14:[function(require,module,exports){
-(function () {
-  'use strict';
-
-  var Buff = require('./Buff'),
-    Building = require('./Building'),
-    Statistic = require('./Statistic'),
-    Population = require('./Population'),
+  var Population = require('./Population'),
     TurnManager = require('../TurnManager'),
     forEach = require('../util/forEach'),
     getRandomInt = require('../convert/getRandomInt');
@@ -844,7 +688,13 @@
     this.buildings = [];
     this.id = setId();
     this.startedAt = TurnManager.getTurn();
-
+    this.stats = {
+      buffs: null,
+      disease: null,
+      food: null,
+      population: new Population(),
+      production: null
+    };
     this.init();
   }
 
@@ -854,155 +704,18 @@
     startedAt: null,
 
     /**
-     * @method resetStatistics
-     * @TODO - Make population 'demographics', break city into child-young-adult-old etc.
-     */
-    resetStatistics: function () {
-      this.stats = {
-        food: new Statistic(getRandomInt(45, 60)),
-        population: new Population(),
-        work: new Statistic(0),
-        disease: new Statistic(getRandomInt(10, 20)),
-        happiness: new Statistic(getRandomInt(50, 65)),
-        wealth: new Statistic()
-      };
-    },
-
-    /**
-     * @method resetBuffs
-     */
-    resetBuffs: function () {
-      this.buffs = {
-        food: new Buff(),
-        population: new Buff(),
-        work: new Buff(),
-        disease: new Buff(),
-        happiness: new Buff()
-      };
-    },
-
-    /**
      * @method init
      */
     init: function () {
-      this.resetStatistics();
-      this.resetBuffs();
-      this.setStatisticTotals();
-      this.update([]);
-    },
-
-    /**
-     * @method isBuildingInProgress
-     * @param {Number} buildingId
-     * @return {Boolean}
-     */
-    isBuildingInProgress: function (buildingId) {
-      return this.buildings.find(function (b) { return b.id === buildingId; });
-    },
-
-    /**
-     * @method build
-     * @param {Object} buildingParams
-     */
-    build: function (buildingParams) {
-      var alreadyBuilt,
-        building;
-
-      if (!buildingParams) {
-        return;
-      }
-
-      alreadyBuilt = this.isBuildingInProgress(buildingParams.id);
-      if (alreadyBuilt) {
-        return console.error(buildingParams.name, 'is already built or in progress');
-      }
-
-      building = new Building(this, buildingParams);
-      this.buildings.push(building);
-    },
-
-    /**
-     * @method setToDestroy
-     * @param {Object} building
-     */
-    setToDestroy: function (building) {
-      building = this.buildings.find(function (b) {
-        return b.id === building.id;
-      });
-      building.destroy();
-
-      this.buildings = this.buildings.filter(function (b) {
-        return b.id !== building.id;
-      });
-      this.update([]);
+      this.update();
     },
 
     /**
      * @method update
-     * @param {Array} otherTowns
      */
-    update: function (otherTowns) {
-      var otherTownsBuildings;
-
-      this.resetBuffs();
+    update: function () {
       this.stats.population.update();
-      this.stats.work.set(this.stats.population.getTotalWork());
-      console.info('work produced by', this.id, this.stats.work);
-
-      //@TODO - Fix otherbuilding mutators to pass back in owner town to .update(otherbuildingsTown)
-
-      // otherTownsBuildings = otherTowns.map(function (town) {
-      //   return town.buildings;
-      // });
-      // otherTownsBuildings = ([]).concat.apply([], otherTownsBuildings);
-      //
-      // otherTownsBuildings.forEach(function (building) {
-      //   building.update(this);
-      //   if (building.isFinished()) {
-      //     this.updateStatistics(building.belongsTo, building.mutators.global);
-      //   }
-      // }, this);
-
-      this.buildings.forEach(function (building) {
-        building.update(this);
-        if (building.isFinished()) {
-          this.updateStatistics(building.belongsTo, building.mutators.local);
-        }
-      }, this);
-
-      this.setStatisticTotals();
-    },
-
-    /**
-     * @method updateStatistics
-     * @param {Number} belongsTo
-     * @param {Array} mutators
-     */
-    updateStatistics: function (belongsTo, mutators) {
-      var self = this;
-
-      mutators.forEach(function (mutator) {
-        if (mutator.buff) {
-          self.buffs[mutator.to].set(belongsTo, mutator.by);
-        } else {
-          self.stats[mutator.to].add(mutator.by);
-        }
-      });
-    },
-
-    /**
-     * @method setStatisticTotals
-     * @description Calculate stats totals, including the various buffs
-     */
-    setStatisticTotals: function () {
-      var totals = {},
-        buff;
-
-      forEach(this.stats, function (value, key) {
-        buff = this.buffs[key];
-        totals[key] = value.get() + (buff ? buff.total() : 0);
-      }, this);
-      this.totals = totals;
+      this.stats.production = this.stats.population.getTotalProduction();
     }
 
   };
@@ -1011,7 +724,7 @@
 
 }());
 
-},{"../TurnManager":3,"../convert/getRandomInt":8,"../util/forEach":15,"./Buff":9,"./Building":10,"./Population":12,"./Statistic":13}],15:[function(require,module,exports){
+},{"../TurnManager":3,"../convert/getRandomInt":8,"../util/forEach":14,"./Population":12}],14:[function(require,module,exports){
 (function () {
   'use strict';
 
@@ -1028,7 +741,7 @@
 
 }());
 
-},{}],16:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 var bundleFn = arguments[3];
 var sources = arguments[4];
 var cache = arguments[5];
@@ -1111,7 +824,7 @@ module.exports = function (fn, options) {
     return worker;
 };
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function () {
   'use strict';
 
@@ -1120,4 +833,4 @@ module.exports = function (fn, options) {
 
 }());
 
-},{"./angular/app":1}]},{},[17]);
+},{"./angular/app":1}]},{},[16]);

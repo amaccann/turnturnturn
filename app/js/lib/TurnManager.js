@@ -2,9 +2,10 @@
   'use strict';
 
   var YEAR_MULTIPLIER = 0.25, // 1 turn === 0.25 of year === season
-    floor = require('./convert/floor');
+    floor = require('./convert/floor'),
+    TurnManager;
 
-  var TurnManager = {
+  TurnManager = {
     turn: 1,
     year: 1,
 
